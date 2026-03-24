@@ -1,36 +1,49 @@
-# Byte-compiled / optimized files
-__pycache__/
-*.py[codz]
-*$py.class
+import os
+import requests
+from dotenv import load_dotenv
+from pathlib import Path
 
-# Distribution / packaging
-build/
-dist/
-*.egg-info/
-.installed.cfg
-*.egg
+# Securely locate and load environment variables
+base_path = Path(__file__).resolve().parent
+env_path = base_path / '.env'
+load_dotenv(dotenv_path=env_path)
 
-# Unit test / coverage reports
-.coverage
-.cache
-.pytest_cache/
-nosetests.xml
-coverage.xml
+VT_API_KEY = os.getenv("VT_API_KEY")
 
-# Environments - CRITICAL FOR SECURITY
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-*.bak
+def get_ip_reputation(ip_address):
+    """Queries VirusTotal API v3 for IP reputation data."""
+    
+    # Validation to ensure API key is present before making requests
+    if not VT_API_KEY:
+        print(f"[!] Critical Error: API Key not found at {env_path}")
+        return
 
-# IDE Settings
-.vscode/
-.idea/
-.spyderproject
+    url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip_address}"
+    headers = {"x-apikey": VT_API_KEY}
 
-# OS generated files
-.DS_Store
-Thumbs.dbS
+    try:
+        # Performing the request with a timeout for better stability
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            stats = data['data']['attributes']['last_analysis_stats']
+            
+            print(f"\n--- [SOC ANALYSIS] Results for {ip_address} ---")
+            print(f"🔴 Malicious: {stats['malicious']}")
+            print(f"🟢 Harmless: {stats['harmless']}")
+            print(f"⚪ Undetected: {stats['undetected']}")
+        else:
+            print(f"[!] API Error: Received Status Code {response.status_code}")
+            
+    except requests.exceptions.RequestException as e:
+        print(f"[!] Connection Error: {e}")
+
+if __name__ == "__main__":
+    print("--- 🛡️ Professional SOC Scanner ---")
+    target_ip = input("Enter IP for analysis (e.g., 8.8.8.8): ").strip()
+    
+    if target_ip:
+        get_ip_reputation(target_ip)
+    else:
+        print("[!] No IP provided. Exiting.")
